@@ -1339,13 +1339,15 @@ class MiniGridEnv(gym.Env):
         delta = np.array(action, dtype=int) - 1 #action should be [0,1,2]
         fwd_pos = self.agent_pos + delta
 
-        locomotion_reward = delta * [1, 1]
+
         swamp_reward = 0
+        locomotion_reward = np.array([0,0])
         # Get the contents of the cell in front of the agent
         fwd_cell = self.grid.get(*fwd_pos)
 
         if fwd_cell is None or fwd_cell.can_overlap():
             self.agent_pos = fwd_pos
+            locomotion_reward = delta * [1, 1]
         if fwd_cell is not None and fwd_cell.type == "goal":
             done = True
             # reward = self._reward()
@@ -1353,6 +1355,8 @@ class MiniGridEnv(gym.Env):
             done = True
         if fwd_cell is not None and fwd_cell.type == "swamp":
             swamp_reward = -5 # np.array[0, 0, -1]
+
+
         total_reward = np.concatenate([locomotion_reward, [swamp_reward]])
         reward = np.sum(total_reward)
         ## Commented out for now, because we don't need these actions for now

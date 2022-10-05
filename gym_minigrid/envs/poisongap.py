@@ -30,7 +30,7 @@ class SwampEnv(MiniGridEnv):
             mission_space=mission_space,
             width=size,
             height=size,
-            max_steps=4 * size * size,
+            max_steps=10,
             # Set this to True for maximum speed
             see_through_walls=False,
         )
@@ -68,7 +68,7 @@ class SwampEnv(MiniGridEnv):
         # # Put a hole in the wall
         # self.grid.set(*self.gap_pos, None)
 
-        self.n_obstacles = 5
+        self.n_obstacles = 10
         for i_obst in range(self.n_obstacles):
             # self.obstacles.append(self.obstacle_type)
             self.place_obj(self.obstacle_type(), max_tries=100)

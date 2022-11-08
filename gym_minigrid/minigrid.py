@@ -55,6 +55,7 @@ OBJECT_TO_IDX = {
     "lava": 9,
     "agent": 10,
     "swamp": 11,
+    "lava2": 12,
 }
 
 IDX_TO_OBJECT = dict(zip(OBJECT_TO_IDX.values(), OBJECT_TO_IDX.keys()))
@@ -344,6 +345,8 @@ class WorldObj:
             v = Lava()
         elif obj_type == "swamp":
             v = Swamp()
+        elif obj_type == "lava2":
+            v = Lava2()
         else:
             assert False, "unknown object type in decode '%s'" % obj_type
 
@@ -381,7 +384,8 @@ class Floor(WorldObj):
         color = COLORS[self.color] / 2
         fill_coords(img, point_in_rect(0.031, 1, 0.031, 1), color)
 
-
+# This is currently used as the block for left
+# maybe make it blue
 class Lava(WorldObj):
     def __init__(self):
         super().__init__("lava", "red")
@@ -390,7 +394,7 @@ class Lava(WorldObj):
         return True
 
     def render(self, img):
-        c = (255, 128, 0)
+        c = (0, 0, 255)
 
         # Background color
         fill_coords(img, point_in_rect(0, 1, 0, 1), c)
@@ -413,6 +417,30 @@ class Swamp(WorldObj):
 
     def render(self, img):
         c = (255, 128, 0)
+
+        # Background color
+        fill_coords(img, point_in_rect(0, 1, 0, 1), c)
+
+        # Little waves
+        for i in range(3):
+            ylo = 0.3 + 0.2 * i
+            yhi = 0.4 + 0.2 * i
+            fill_coords(img, point_in_line(0.1, ylo, 0.3, yhi, r=0.03), (0, 0, 0))
+            fill_coords(img, point_in_line(0.3, yhi, 0.5, ylo, r=0.03), (0, 0, 0))
+            fill_coords(img, point_in_line(0.5, ylo, 0.7, yhi, r=0.03), (0, 0, 0))
+            fill_coords(img, point_in_line(0.7, yhi, 0.9, ylo, r=0.03), (0, 0, 0))
+
+# This is currently used as the block for right
+# maybe make it green
+class Lava2(WorldObj):
+    def __init__(self):
+        super().__init__("lava2", "green")
+
+    def can_overlap(self):
+        return True
+
+    def render(self, img):
+        c = (0, 255, 0)
 
         # Background color
         fill_coords(img, point_in_rect(0, 1, 0, 1), c)
@@ -901,7 +929,8 @@ class MiniGridEnv(gym.Env):
         # self.actions = MiniGridEnv.Actions
 
         # Actions are discrete integer values
-        self.action_space = spaces.MultiDiscrete((3, 3))
+        # self.action_space = spaces.MultiDiscrete((3, 3))
+        self.action_space = spaces.MultiDiscrete((3, 3, 3, 3))
 
         # Number of cells (width and height) in the agent view
         assert agent_view_size % 2 == 1
@@ -1007,6 +1036,7 @@ class MiniGridEnv(gym.Env):
             "goal": "G",
             "lava": "V",
             "swamp": "S",
+            "lava2": "M",
         }
 
         # Map agent's direction to short string
@@ -1323,43 +1353,100 @@ class MiniGridEnv(gym.Env):
 
         return obs_cell is not None and obs_cell.type == world_cell.type
 
+
+    def get_n_neighbors(self):
+        non_empty_count = 0
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                pos = self.agent_pos + np.array([i,j])
+                cell = self.grid.get(*pos)
+                if cell is not None: #or cell.type != "empty": #none is empty
+                    # print(cell.type)
+                    non_empty_count += 1
+        return non_empty_count
+
+    # This is a step function that is specifically designed for simplified simulation of MOMA
     def step(self, action):
         self.step_count += 1
-
-        reward = 0
         done = False
 
-
-
-        # Get the position in front of the agent
-        fwd_pos = self.front_pos
-
+        ################# action processing block  ####################
         # instead, get position depending on the action
-        assert(len(action) == 2)
-        delta = np.array(action, dtype=int) - 1 #action should be [0,1,2]
-        fwd_pos = self.agent_pos + delta
+        assert(len(action) == 4)
+        np_action = np.array(action, dtype=int)
+        delta = np_action[:2] - 1 # action should be in range [0,1,2]
 
+        # For example, base will never be incentivized to go near the "fruit" if there is no reward associated with it
+        # We can potentially have an "avoid" action
+        # Left and right arm for different actions
+        # maybe also a "hand" module
+        # How can we also have an observation module?
+        arm_l = action[2]
+        arm_r = action[3]
 
+        ################# reward initialization block  ####################
         swamp_reward = 0
-        locomotion_reward = np.array([0,0])
+        locomotion_reward = np.array([0, 0])
+        arm_l_collision_reward = 0
+        arm_r_collision_reward = 0
+
+        ################# position initialization block  ####################
+        fwd_pos = self.agent_pos + delta
+        fwd_pos_1 = self.agent_pos + [delta[0], 0]
+        fwd_pos_2 = self.agent_pos + [0, delta[1]]
+        cur_cell = self.grid.get(*self.agent_pos)
+        non_empty_count = self.get_n_neighbors()
+        # print(f"non_empty_count: {non_empty_count}")
+
         # Get the contents of the cell in front of the agent
         fwd_cell = self.grid.get(*fwd_pos)
+        fwd_cell1 = self.grid.get(*fwd_pos_1)
+        fwd_cell2 = self.grid.get(*fwd_pos_2)
 
+        ##############  arm collision block  ###################
+        if cur_cell is not None and cur_cell.type == "lava":
+            # lava reward has to be based on obs
+
+            if arm_l != non_empty_count % 3:
+                arm_l_collision_reward = -5
+
+        if cur_cell is not None and cur_cell.type == "lava2":
+            # lava reward has to be based on obs
+            if arm_r != non_empty_count % 3:
+                arm_r_collision_reward = -5
+
+
+        # TODO:
+        #  This is still not correct:
+        #  same action could result in different reward because of the other action
+        #  When there is obstacles this wouldn't work anymore
         if fwd_cell is None or fwd_cell.can_overlap():
             self.agent_pos = fwd_pos
             locomotion_reward = delta * [1, 1]
+        elif fwd_cell1 is None or fwd_cell1.can_overlap():
+            fwd_pos = fwd_pos_1
+            fwd_cell = fwd_cell1
+            self.agent_pos = fwd_pos
+            locomotion_reward = delta * [1, 0]
+        elif fwd_cell2 is None or fwd_cell2.can_overlap():
+            fwd_pos = fwd_pos_2
+            fwd_cell = fwd_cell2
+            self.agent_pos = fwd_pos
+            locomotion_reward = delta * [0, 1]
+
         if fwd_cell is not None and fwd_cell.type == "goal":
             done = True
             # reward = self._reward()
-        if fwd_cell is not None and fwd_cell.type == "lava":
-            done = True
+        # if fwd_cell is not None and fwd_cell.type == "lava":
+        #     done = True
         if fwd_cell is not None and fwd_cell.type == "swamp":
-            swamp_reward = -5 # np.array[0, 0, -1]
+            swamp_reward = -5  # np.array[0, 0, -1]
 
-
-        total_reward = np.concatenate([locomotion_reward, [swamp_reward]])
+        ##############  reward total block  ###################
+        total_reward = np.concatenate([locomotion_reward, [swamp_reward, arm_l_collision_reward, arm_r_collision_reward]])
         reward = np.sum(total_reward)
-        ## Commented out for now, because we don't need these actions for now
+
+        # Commented out for now, because we don't need these actions for now
 
         # # Rotate left
         # if action == self.actions.left:
@@ -1414,7 +1501,7 @@ class MiniGridEnv(gym.Env):
 
         obs = self.gen_obs()
 
-        return obs, reward, done, {"r_list": total_reward}
+        return obs, reward, done, total_reward
 
     def gen_obs_grid(self, agent_view_size=None):
         """
@@ -1471,7 +1558,8 @@ class MiniGridEnv(gym.Env):
         # - an image (partially observable view of the environment)
         # - the agent's direction/orientation (acting as a compass)
         # - a textual mission string (instructions for the agent)
-        obs = {"image": image, "direction": self.agent_dir, "mission": self.mission}
+        # obs = {"image": image, "direction": self.agent_dir, "mission": self.mission}
+        obs = {"image": image, "mission": self.mission}  # Just the image is enough
 
         return obs
 

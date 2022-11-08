@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from gym_minigrid.minigrid import Goal, Grid, Swamp, MiniGridEnv, MissionSpace
+from gym_minigrid.minigrid import Goal, Grid, Swamp, MiniGridEnv, MissionSpace, Lava, Lava2
 
 
 class SwampEnv(MiniGridEnv):
@@ -32,7 +32,7 @@ class SwampEnv(MiniGridEnv):
             height=size,
             max_steps=10,
             # Set this to True for maximum speed
-            see_through_walls=False,
+            see_through_walls=True,
         )
 
     def _gen_grid(self, width, height):
@@ -68,10 +68,23 @@ class SwampEnv(MiniGridEnv):
         # # Put a hole in the wall
         # self.grid.set(*self.gap_pos, None)
 
-        self.n_obstacles = 10
+        # Place the swamp
+        self.n_obstacles = 5
         for i_obst in range(self.n_obstacles):
             # self.obstacles.append(self.obstacle_type)
             self.place_obj(self.obstacle_type(), max_tries=100)
+
+        arm_obs = 8
+        # Place the l_arm obs
+        for i_obst in range(arm_obs):
+            # self.obstacles.append(self.obstacle_type)
+            self.place_obj(Lava(), max_tries=100)
+
+        arm_obs = 8
+        # Place the l_arm obs
+        for i_obst in range(arm_obs):
+            # self.obstacles.append(self.obstacle_type)
+            self.place_obj(Lava2(), max_tries=100)
 
         self.mission = (
             "avoid the swamp and get to the green goal square"

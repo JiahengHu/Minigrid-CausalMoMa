@@ -27,7 +27,9 @@ def reset():
 def step(action):
     obs, reward, done, info = env.step(action)
     print(f"step={env.step_count}, reward={reward:.2f}")
-
+    print(f"info={info}")
+    vis_obs = obs["image"][:,::-1,0]
+    print(f"obs={vis_obs}")
     if done:
         print("done!")
         reset()
@@ -37,6 +39,7 @@ def step(action):
 
 def key_handler(event):
     print("pressed", event.key)
+    append_action = [2, 1]
 
     if event.key == "escape":
         window.close()
@@ -57,28 +60,28 @@ def key_handler(event):
         return
 
     if event.key == "q":
-        step([0, 0])
+        step([0, 0] + append_action)
         return
     if event.key == "e":
-        step([2, 0])
+        step([2, 0] + append_action)
         return
     if event.key == "z":
-        step([0, 2])
+        step([0, 2] + append_action)
         return
     if event.key == "c":
-        step([2, 2])
+        step([2, 2] + append_action)
         return
     if event.key == "w":
-        step([1, 0])
+        step([1, 0] + append_action)
         return
     if event.key == "x":
-        step([1, 2])
+        step([1, 2] + append_action)
         return
     if event.key == "a":
-        step([0, 1])
+        step([0, 1] + append_action)
         return
     if event.key == "d":
-        step([2, 1])
+        step([2, 1] + append_action)
         return
 
     # Spacebar

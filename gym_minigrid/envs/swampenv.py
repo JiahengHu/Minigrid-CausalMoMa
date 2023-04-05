@@ -1,6 +1,7 @@
-# This is very similar to lavagap, except that the environment doesn't end when the robot enters the lava
-
-# HERE: TODO: make this the gym environment
+"""
+This is the environment used for Causal MoMa
+It contains three different types of tiles, where arm actions are needed to avoid penalty
+"""
 
 import numpy as np
 

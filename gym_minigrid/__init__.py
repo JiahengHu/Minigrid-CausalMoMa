@@ -20,6 +20,20 @@ def register_minigrid_envs():
         kwargs={"size": 8, "num_crossings": 1},
     )
 
+    # Sparse
+    # ----------------------------------------
+    register(
+        id="Sparse1d",
+        entry_point="gym_minigrid.envs:Sparse1DEnv",
+        kwargs={"size": 7, "delayed": False},
+    )
+
+    register(
+        id="Sparse1dDelayed",
+        entry_point="gym_minigrid.envs:Sparse1DEnv",
+        kwargs={"size": 7, "delayed": True},
+    )
+
     # LavaCrossing
     # ----------------------------------------
     register(

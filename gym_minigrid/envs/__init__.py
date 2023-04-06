@@ -24,3 +24,4 @@ from gym_minigrid.envs.redbluedoors import RedBlueDoorEnv
 from gym_minigrid.envs.unlock import UnlockEnv
 from gym_minigrid.envs.unlockpickup import UnlockPickupEnv
 from gym_minigrid.envs.swampenv import SwampEnv
+from gym_minigrid.envs.sparse1d import Sparse1DEnv

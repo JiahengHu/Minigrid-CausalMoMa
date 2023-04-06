@@ -1,43 +1,35 @@
-"""
-This is the environment used for Causal MoMa - rebuttal
-1D env with delayed / undelayed reward
-"""
-
 import numpy as np
 
 from gym_minigrid.minigrid import Goal, Grid, Swamp, MiniGridEnv, MissionSpace, Lava, Lava2
 
 
-class SwampEnv(MiniGridEnv):
+class Sparse1DEnv(MiniGridEnv):
     """
-    Environment with one wall of lava with a small gap to cross through
-    This environment is similar to LavaCrossing but simpler in structure.
+    This is the environment used for Causal MoMa - rebuttal
+    1D env with delayed / undelayed reward
+    Reward depends on arm_l at specific grid (4 steps before entering the grid)
     """
 
-    def __init__(self, size, obstacle_type=Swamp, **kwargs):
-        self.obstacle_type = obstacle_type
+    def __init__(self, size, delayed, **kwargs):
         self.size = size
+        self.delayed = delayed  # Whether the reward is delayed
+        self.prev_arm_l = 0
 
-        if obstacle_type == Swamp:
-            mission_space = MissionSpace(
-                mission_func=lambda: "avoid the Swamp and get to the green goal square"
-            )
-        else:
-            mission_space = MissionSpace(
-                mission_func=lambda: "find the opening and get to the green goal square"
-            )
+        mission_space = MissionSpace(
+            mission_func=lambda: "reach goal with specific arm action"
+        )
 
         super().__init__(
             mission_space=mission_space,
             width=size,
-            height=size,
+            height=3,
             max_steps=10,
             # Set this to True for maximum speed
             see_through_walls=True,
         )
 
     def _gen_grid(self, width, height):
-        assert width >= 5 and height >= 5
+        assert width >= 3 and height >= 3
 
         # Create an empty grid
         self.grid = Grid(width, height)
@@ -61,34 +53,26 @@ class SwampEnv(MiniGridEnv):
             )
         )
 
-        #TODO: randomize location of lava
-
-        # # Place the obstacle wall
-        # self.grid.vert_wall(self.gap_pos[0], 1, height - 2, self.obstacle_type)
-        #
-        # # Put a hole in the wall
-        # self.grid.set(*self.gap_pos, None)
-
-        # Place the swamp
-        self.n_obstacles = 5
-        for i_obst in range(self.n_obstacles):
-            # self.obstacles.append(self.obstacle_type)
-            self.place_obj(self.obstacle_type(), max_tries=100)
-
-        arm_obs = 8
-        # Place the l_arm obs
-        for i_obst in range(arm_obs):
-            # self.obstacles.append(self.obstacle_type)
-            self.place_obj(Lava(), max_tries=100)
-
-        arm_obs = 8
-        # Place the l_arm obs
-        for i_obst in range(arm_obs):
-            # self.obstacles.append(self.obstacle_type)
-            self.place_obj(Lava2(), max_tries=100)
-
         self.mission = (
-            "avoid the swamp and get to the green goal square"
-            if self.obstacle_type == Swamp
-            else "find the opening and get to the green goal square"
+            "reach goal with specific arm action"
         )
+
+    def get_step_reward(self, cur_cell, fwd_cell, arm_l, arm_r, locomotion_dir, non_empty_count, done):
+        reach_reward = 0
+
+        if done:
+            if not self.delayed:
+                important_arm_action = arm_l
+            else:
+                important_arm_action = self.prev_arm_l
+            if important_arm_action == 0:
+                reach_reward = 1
+
+        total_reward = np.array([reach_reward])
+
+        return total_reward
+
+    def step(self, action):
+        obs, reward, done, total_reward = super().step(action)
+        self.prev_arm_l = action[2]
+        return obs, reward, done, total_reward

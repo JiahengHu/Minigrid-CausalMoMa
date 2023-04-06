@@ -1,8 +1,3 @@
-"""
-This is the environment used for Causal MoMa
-It contains three different types of tiles, where arm actions are needed to avoid penalty
-"""
-
 import numpy as np
 
 from gym_minigrid.minigrid import Goal, Grid, Swamp, MiniGridEnv, MissionSpace, Lava, Lava2
@@ -10,8 +5,8 @@ from gym_minigrid.minigrid import Goal, Grid, Swamp, MiniGridEnv, MissionSpace, 
 
 class SwampEnv(MiniGridEnv):
     """
-    Environment with one wall of lava with a small gap to cross through
-    This environment is similar to LavaCrossing but simpler in structure.
+    This is the environment used for Causal MoMa
+    It contains three different types of tiles, where arm actions are needed to avoid penalty
     """
 
     def __init__(self, size, obstacle_type=Swamp, **kwargs):
@@ -61,14 +56,6 @@ class SwampEnv(MiniGridEnv):
             )
         )
 
-        #TODO: randomize location of lava
-
-        # # Place the obstacle wall
-        # self.grid.vert_wall(self.gap_pos[0], 1, height - 2, self.obstacle_type)
-        #
-        # # Put a hole in the wall
-        # self.grid.set(*self.gap_pos, None)
-
         # Place the swamp
         self.n_obstacles = 5
         for i_obst in range(self.n_obstacles):
@@ -92,3 +79,27 @@ class SwampEnv(MiniGridEnv):
             if self.obstacle_type == Swamp
             else "find the opening and get to the green goal square"
         )
+
+    def get_step_reward(self, cur_cell, fwd_cell, arm_l, arm_r, locomotion_dir, non_empty_count, done):
+        ################# reward initialization block  ####################
+        swamp_reward = 0
+        locomotion_reward = locomotion_dir
+        arm_l_collision_reward = 0
+        arm_r_collision_reward = 0
+
+        ##############  arm collision block  ###################
+        if cur_cell is not None and cur_cell.type == "lava":
+            if arm_l != non_empty_count % 3:
+                arm_l_collision_reward = -5
+        if cur_cell is not None and cur_cell.type == "lava2":
+            if arm_r != non_empty_count % 3:
+                arm_r_collision_reward = -5
+        if fwd_cell is not None and fwd_cell.type == "swamp":
+            swamp_reward = -5
+
+        ##############  reward total block  ###################
+        total_reward = np.concatenate(
+            [locomotion_reward, [swamp_reward, arm_l_collision_reward, arm_r_collision_reward]])
+
+        return total_reward
+

@@ -1353,8 +1353,10 @@ class MiniGridEnv(gym.Env):
 
         return obs_cell is not None and obs_cell.type == world_cell.type
 
-
     def get_n_neighbors(self):
+        """
+        Helper function for the
+        """
         non_empty_count = 0
         for i in range(-1, 2):
             for j in range(-1, 2):
@@ -1365,30 +1367,26 @@ class MiniGridEnv(gym.Env):
                     non_empty_count += 1
         return non_empty_count
 
-    # This is a step function that is specifically designed for simplified simulation of MOMA
+    def get_step_reward(self, cur_cell, fwd_cell, arm_l, arm_r, locomotion_dir, non_empty_count, done):
+        """reward function"""
+        raise NotImplementedError
+
     def step(self, action):
+        """
+        This is a step function that is specifically designed for simplified simulation of Causal MOMA
+        Original Minigrid only support 1d action and sparse reward
+        Here we are executing 4D actions with relatively dense reward
+        """
         self.step_count += 1
         done = False
 
         ################# action processing block  ####################
-        # instead, get position depending on the action
         assert(len(action) == 4)
         np_action = np.array(action, dtype=int)
-        delta = np_action[:2] - 1 # action should be in range [0,1,2]
+        delta = np_action[:2] - 1  # action should be in range [0,1,2]
 
-        # For example, base will never be incentivized to go near the "fruit" if there is no reward associated with it
-        # We can potentially have an "avoid" action
-        # Left and right arm for different actions
-        # maybe also a "hand" module
-        # How can we also have an observation module?
         arm_l = action[2]
         arm_r = action[3]
-
-        ################# reward initialization block  ####################
-        swamp_reward = 0
-        locomotion_reward = np.array([0, 0])
-        arm_l_collision_reward = 0
-        arm_r_collision_reward = 0
 
         ################# position initialization block  ####################
         fwd_pos = self.agent_pos + delta
@@ -1396,105 +1394,35 @@ class MiniGridEnv(gym.Env):
         fwd_pos_2 = self.agent_pos + [0, delta[1]]
         cur_cell = self.grid.get(*self.agent_pos)
         non_empty_count = self.get_n_neighbors()
-        # print(f"non_empty_count: {non_empty_count}")
 
         # Get the contents of the cell in front of the agent
         fwd_cell = self.grid.get(*fwd_pos)
         fwd_cell1 = self.grid.get(*fwd_pos_1)
         fwd_cell2 = self.grid.get(*fwd_pos_2)
 
-        ##############  arm collision block  ###################
-        if cur_cell is not None and cur_cell.type == "lava":
-            # lava reward has to be based on obs
-
-            if arm_l != non_empty_count % 3:
-                arm_l_collision_reward = -5
-
-        if cur_cell is not None and cur_cell.type == "lava2":
-            # lava reward has to be based on obs
-            if arm_r != non_empty_count % 3:
-                arm_r_collision_reward = -5
-
-
         # TODO:
-        #  This is still not correct:
-        #  same action could result in different reward because of the other action
-        #  When there is obstacles this wouldn't work anymore
+        #  When there is obstacles, same action could result in different reward because of the other action
         if fwd_cell is None or fwd_cell.can_overlap():
             self.agent_pos = fwd_pos
-            locomotion_reward = delta * [1, 1]
+            locomotion_dir = delta * [1, 1]
         elif fwd_cell1 is None or fwd_cell1.can_overlap():
             fwd_pos = fwd_pos_1
             fwd_cell = fwd_cell1
             self.agent_pos = fwd_pos
-            locomotion_reward = delta * [1, 0]
+            locomotion_dir = delta * [1, 0]
         elif fwd_cell2 is None or fwd_cell2.can_overlap():
             fwd_pos = fwd_pos_2
             fwd_cell = fwd_cell2
             self.agent_pos = fwd_pos
-            locomotion_reward = delta * [0, 1]
+            locomotion_dir = delta * [0, 1]
+        else:
+            locomotion_dir = delta * [0, 0]
 
         if fwd_cell is not None and fwd_cell.type == "goal":
             done = True
-            # reward = self._reward()
-        # if fwd_cell is not None and fwd_cell.type == "lava":
-        #     done = True
-        if fwd_cell is not None and fwd_cell.type == "swamp":
-            swamp_reward = -5  # np.array[0, 0, -1]
 
-        ##############  reward total block  ###################
-        total_reward = np.concatenate([locomotion_reward, [swamp_reward, arm_l_collision_reward, arm_r_collision_reward]])
+        total_reward = self.get_step_reward(cur_cell, fwd_cell, arm_l, arm_r, locomotion_dir, non_empty_count, done)
         reward = np.sum(total_reward)
-
-        # Commented out for now, because we don't need these actions for now
-
-        # # Rotate left
-        # if action == self.actions.left:
-        #     self.agent_dir -= 1
-        #     if self.agent_dir < 0:
-        #         self.agent_dir += 4
-        #
-        # # Rotate right
-        # elif action == self.actions.right:
-        #     self.agent_dir = (self.agent_dir + 1) % 4
-        #
-        # # Move forward
-        # elif action == self.actions.forward:
-        #     if fwd_cell is None or fwd_cell.can_overlap():
-        #         self.agent_pos = fwd_pos
-        #     if fwd_cell is not None and fwd_cell.type == "goal":
-        #         done = True
-        #         reward = self._reward()
-        #     if fwd_cell is not None and fwd_cell.type == "lava":
-        #         done = True
-        #     if fwd_cell is not None and fwd_cell.type == "swamp":
-        #         reward = np.array[0, 0, -1]
-        # # Pick up an object
-        # elif action == self.actions.pickup:
-        #     if fwd_cell and fwd_cell.can_pickup():
-        #         if self.carrying is None:
-        #             self.carrying = fwd_cell
-        #             self.carrying.cur_pos = np.array([-1, -1])
-        #             self.grid.set(*fwd_pos, None)
-        #
-        # # Drop an object
-        # elif action == self.actions.drop:
-        #     if not fwd_cell and self.carrying:
-        #         self.grid.set(*fwd_pos, self.carrying)
-        #         self.carrying.cur_pos = fwd_pos
-        #         self.carrying = None
-        #
-        # # Toggle/activate an object
-        # elif action == self.actions.toggle:
-        #     if fwd_cell:
-        #         fwd_cell.toggle(self, fwd_pos)
-        #
-        # # Done action (not used by default)
-        # elif action == self.actions.done:
-        #     pass
-        #
-        # else:
-        #     assert False, "unknown action"
 
         if self.step_count >= self.max_steps:
             done = True

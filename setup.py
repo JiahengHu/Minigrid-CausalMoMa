@@ -32,17 +32,14 @@ setup(
     description="Minimalistic gridworld reinforcement learning environments",
     extras_require=extras,
     packages=["gym_minigrid", "gym_minigrid.envs"],
-    entry_points={
-        "gym.envs": ["__root__ = gym_minigrid.__init__:register_minigrid_envs"]
-    },
     license="Apache",
     long_description=long_description,
     long_description_content_type="text/markdown",
     install_requires=[
-        "gym>=0.22,<=0.26",
+        "gym==0.21",
         "numpy>=1.18.0",
         "matplotlib>=3.0",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.6",
     tests_require=extras["testing"],
 )

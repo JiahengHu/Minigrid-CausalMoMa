@@ -85,7 +85,7 @@ def check_if_no_duplicate(duplicate_list: list) -> bool:
     return len(set(duplicate_list)) == len(duplicate_list)
 
 
-class MissionSpace(spaces.Space[str]):
+class MissionSpace(spaces.Space):
     r"""A space representing a mission for the Gym-Minigrid environments.
     The space allows generating random mission strings constructed with an input placeholder list.
     Example Usage::
@@ -103,7 +103,7 @@ class MissionSpace(spaces.Space[str]):
         self,
         mission_func: Callable[..., str],
         ordered_placeholders: Optional["list[list[str]]"] = None,
-        seed: Optional[Union[int, seeding.RandomNumberGenerator]] = None,
+        seed=None,
     ):
         r"""Constructor of :class:`MissionSpace` space.
 
@@ -142,7 +142,7 @@ class MissionSpace(spaces.Space[str]):
         if self.ordered_placeholders is not None:
             placeholders = []
             for rand_var_list in self.ordered_placeholders:
-                idx = self.np_random.integers(0, len(rand_var_list))
+                idx = self.np_random.randint(0, len(rand_var_list))
 
                 placeholders.append(rand_var_list[idx])
 
@@ -972,7 +972,9 @@ class MiniGridEnv(gym.Env):
         self.reset()
 
     def reset(self, *, seed=None, return_info=False, options=None):
-        super().reset(seed=seed)
+        # super().reset(seed=seed)
+        self.np_random, _ = seeding.np_random(seed)
+
         # Current position and direction of the agent
         self.agent_pos = None
         self.agent_dir = None
@@ -1089,7 +1091,7 @@ class MiniGridEnv(gym.Env):
         Generate random integer in [low,high[
         """
 
-        return self.np_random.integers(low, high)
+        return self.np_random.randint(low, high)
 
     def _rand_float(self, low, high):
         """
@@ -1103,7 +1105,7 @@ class MiniGridEnv(gym.Env):
         Generate random boolean value
         """
 
-        return self.np_random.integers(0, 2) == 0
+        return self.np_random.randint(0, 2) == 0
 
     def _rand_elem(self, iterable):
         """
@@ -1144,8 +1146,8 @@ class MiniGridEnv(gym.Env):
         """
 
         return (
-            self.np_random.integers(xLow, xHigh),
-            self.np_random.integers(yLow, yHigh),
+            self.np_random.randint(xLow, xHigh),
+            self.np_random.randint(yLow, yHigh),
         )
 
     def place_obj(self, obj, top=None, size=None, reject_fn=None, max_tries=math.inf):
